@@ -103,7 +103,7 @@ nano /root/custom-channel.conf
 
 ## grab epg data
 ```
-npm run grab --- --channels=/root/custom-channel.conf
+npm run grab --- --days=14 --channels=/root/custom-channel.conf
 ```
 
 ## check epg data
