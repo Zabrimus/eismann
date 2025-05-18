@@ -51,6 +51,9 @@ If set the export dialog offers an additional button. The epg channel configurat
 ### -Dstream-channels.save-to=/\<path>/\<filename>
 If set the export dialog offers an additional button. The selectes streams will be written to the configured file.
 
+### -Depgd-channelmap.save-to=/\<path>/\<filename>
+If set the export dialog offers an additional button. A fragment for epgd channelmap.conf will be written to the configured file.
+
 ## Development mode
 If you want to run the application in development mode, then use the command
 ```

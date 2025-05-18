@@ -77,6 +77,10 @@ public class StreamComponent extends VerticalLayout {
         exportEpg.addClickListener(e -> exportEpg());
         actions.add(exportEpg);
 
+        Button exportEpgd = new Button("Export epgd channelmap.conf fragment");
+        exportEpgd.addClickListener(e -> exportEpgd());
+        actions.add(exportEpgd);
+
         add(actions);
 
         add(streamsGrid);
@@ -116,6 +120,22 @@ public class StreamComponent extends VerticalLayout {
 
         String saveTo = System.getProperty("stream-channels.save-to");
         ExportDialog a = new ExportDialog("Streams", buffer.toString(), saveTo);
+        a.open();
+    }
+
+    private void exportEpgd() {
+        StringBuffer buffer = new StringBuffer();
+
+        List<Bookmark> b = bookmarks.getAllBookmarks();
+        b.stream().forEach(bookmark -> {
+            if (bookmark.site() != null && !bookmark.site().isEmpty()) {
+                buffer.append("// " + epgstream.getName(bookmark.xmltv_id()) + "\n");
+                buffer.append("xmltv:" + bookmark.xmltv_id() + ":1 = \n\n");
+            }
+        });
+
+        String saveTo = System.getProperty("epgd-channelmap.save-to");
+        ExportDialog a = new ExportDialog("epgd channelmap.conf", buffer.toString(), saveTo);
         a.open();
     }
 
