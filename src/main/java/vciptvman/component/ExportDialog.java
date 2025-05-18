@@ -5,16 +5,24 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 public class ExportDialog extends Div {
 
     private final Dialog dialog;
     private String text;
+    private String saveTo;
 
-    public ExportDialog(String title, String text) {
+    public ExportDialog(String title, String text, String saveTo) {
         this.text = text;
+        this.saveTo = saveTo;
 
         dialog = new Dialog();
         dialog.setHeaderTitle(title);
@@ -42,15 +50,44 @@ public class ExportDialog extends Div {
         dialogLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
         dialogLayout.getStyle().set("min-width", "1200px").set("max-width", "100%").set("height", "100%");
 
+        FlexLayout buttons = new FlexLayout();
+
         Button closeButton = new Button("Close");
         closeButton.addClickListener(e -> {
             dialog.close();
         });
 
+        if (saveTo != null && !saveTo.isEmpty()) {
+            Button saveToButton = new Button("Export to " + saveTo);
+            saveToButton.addClickListener(e -> {
+                BufferedWriter br = null;
+                try {
+                    br = new BufferedWriter(new FileWriter(new File(saveTo)));
+                    br.write(text);
+                    br.close();
+
+                    saveToButton.setText("Exported to " + saveTo);
+                    saveToButton.setEnabled(false);
+                } catch (IOException ex) {
+                    if (br != null) {
+                        try {
+                            br.close();
+                        } catch (IOException exc) {
+                            // finally ignore this exception
+                        }
+                    }
+                }
+            });
+
+            buttons.add(saveToButton);
+        }
+
+        buttons.add(closeButton);
+
         TextArea textArea = new TextArea();
         textArea.setValue(text);
 
-        dialogLayout.add(textArea, closeButton);
+        dialogLayout.add(textArea, buttons);
 
         return dialogLayout;
     }

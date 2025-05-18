@@ -43,7 +43,7 @@ public class MainView extends AppLayout {
     private void init(String messageText) {
         DrawerToggle toggle = new DrawerToggle();
 
-        H1 title = new H1("EPG/IPTV Manager Version 0.1");
+        H1 title = new H1("EPG/IPTV Stream Manager Version 0.2");
         title.getStyle().set("font-size", "var(--lumo-font-size-l)").set("margin", "0");
 
         tabs = getTabs();

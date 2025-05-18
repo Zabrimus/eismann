@@ -85,14 +85,6 @@ public class StreamComponent extends VerticalLayout {
     private void exportEpg() {
         StringBuffer buffer = new StringBuffer();
 
-        /*
-        <?xml version="1.0" encoding="UTF-8"?>
-        <channels>
-             <channel site="arirang.com" lang="en" xmltv_id="ArirangTV.kr" site_id="CH_K">Arirang TV</channel>
-             ...
-        </channels>
-         */
-
         buffer.append("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <channels>
@@ -107,7 +99,8 @@ public class StreamComponent extends VerticalLayout {
 
         buffer.append("</channels>\n");
 
-        ExportDialog a = new ExportDialog("EPG", buffer.toString());
+        String saveTo = System.getProperty("epg-channels.save-to");
+        ExportDialog a = new ExportDialog("EPG", buffer.toString(), saveTo);
         a.open();
     }
 
@@ -121,7 +114,8 @@ public class StreamComponent extends VerticalLayout {
            }
         });
 
-        ExportDialog a = new ExportDialog("Streams", buffer.toString());
+        String saveTo = System.getProperty("stream-channels.save-to");
+        ExportDialog a = new ExportDialog("Streams", buffer.toString(), saveTo);
         a.open();
     }
 

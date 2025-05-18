@@ -36,7 +36,20 @@ The folder `build/quarkus-app` contains the application and all necessary librar
 ```
 java -Diptv.database=<path>/iptv-database.db -Dbookmark.database=<path>/bookmark.db -jar <path>/quarkus-run.jar
 ```
-Change all `path` as described in the 1.Test and the destination of your deployment. 
+Change all `path`as described in the 1.Test and the destination of your deployment. 
+
+## Possible parameters
+### -Diptv.database=/\<path>/iptv-database.db
+Mandotory parameter which points to the iptv-database.db.
+
+### -Dbookmark.database=/\<path>/bookmark.db
+Mandatory parameter which points to the bookmarks database.
+
+### -Depg-channels.save-to=/\<path>/\<filename>
+If set the export dialog offers an additional button. The epg channel configuration for the iptv epg grabber will be written to the configured file. 
+
+### -Dstream-channels.save-to=/\<path>/\<filename>
+If set the export dialog offers an additional button. The selectes streams will be written to the configured file.
 
 ## Development mode
 If you want to run the application in development mode, then use the command
@@ -118,4 +131,4 @@ But be aware, that there is no security at all! And possibly another solution is
 Import the guide.xml in epg2vdr and/or tvscraper or via xml2vdr/xml4vdr.
 If the server has been started with `npx serve` the guide.xml can be accessed via `http://<ip>:3000/guide.xml`.  
 
-
+·······
