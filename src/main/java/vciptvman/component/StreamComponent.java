@@ -253,7 +253,7 @@ public class StreamComponent extends VerticalLayout {
             });
 
             Button epgwebsite = new Button("EPG Site", event -> {
-                UI.getCurrent().getPage().open("https://" + bookmarks.getSite(stream.xmltv_id()), "_blank");
+                UI.getCurrent().getPage().open("https://" + bookmarks.getSite(stream.xmltv_id()).site(), "_blank");
             });
 
             if (stream.website() == null) {
