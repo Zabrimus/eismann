@@ -88,4 +88,12 @@ public class BookmarkDatabase {
                     .executeAndFetch(Bookmark.class);
         }
     }
+
+    public void delete(String xmltv_id) {
+        try (Connection con = database.getBookmarkConnection()) {
+            con.createQuery("DELETE from bookmarks WHERE xmltv_id = :xmltv_id")
+               .addParameter("xmltv_id", xmltv_id)
+               .executeUpdate();
+        }
+    }
 }

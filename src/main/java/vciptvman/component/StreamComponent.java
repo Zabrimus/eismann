@@ -11,6 +11,8 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.grid.dataview.GridListDataView;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -156,6 +158,10 @@ public class StreamComponent extends VerticalLayout {
         Grid.Column<Stream> countryColumn = grid.addColumn(createCountryColumnRenderer()).setHeader("Country").setSortable(true).setComparator(Stream::country);
         Grid.Column<Stream> categoryColumn = grid.addColumn(createCategoryRenderer()).setHeader("Category").setSortable(true).setComparator(Stream::categories);
         Grid.Column<Stream> epgColumn = grid.addColumn(createEpgProviderRenderer()).setHeader("EPG Provider").setSortable(true);
+
+        if (showOnlyBookmarked) {
+            grid.addColumn(createDeleteButton());
+        }
 
         GridListDataView<Stream> dataView = grid.setItems(streams);
         grid.setMultiSort(true, Grid.MultiSortPriority.APPEND);
@@ -360,6 +366,17 @@ public class StreamComponent extends VerticalLayout {
                 hLayout.add(new Div(categories.get(s)));
             }
             return hLayout;
+        });
+    }
+
+    private Renderer<Stream> createDeleteButton() {
+        return new ComponentRenderer<>(stream -> {
+            Button delete = new Button(new Icon(VaadinIcon.TRASH), event -> {
+                bookmarks.delete(stream.xmltv_id());
+                streamsGrid.setItems(epgstream.getBookmarkedStreams());
+            });
+
+            return delete;
         });
     }
 
