@@ -16,8 +16,8 @@ public class BookmarkDatabase {
     public void updateEnabledBookmark(Bookmark bookmark) {
         try (Connection con = database.getBookmarkConnection()) {
             con.createQuery("""
-                            INSERT INTO bookmarks (xmltv_id, site, site_lang, url, active)
-                              VALUES(:xmltv_id, null, null, null, :active)
+                            INSERT INTO bookmarks (xmltv_id, site, site_lang, url, active, sort_order)
+                              VALUES(:xmltv_id, null, null, null, :active, 0)
                               ON CONFLICT(xmltv_id)
                               DO UPDATE SET active = :active
                             """)
@@ -30,8 +30,8 @@ public class BookmarkDatabase {
     public void updateSiteBookmark(Bookmark bookmark) {
         try (Connection con = database.getBookmarkConnection()) {
             con.createQuery("""
-                            INSERT INTO bookmarks (xmltv_id, site, site_lang, url, active)
-                              VALUES(:xmltv_id, :site, :site_lang, null, false)
+                            INSERT INTO bookmarks (xmltv_id, site, site_lang, url, active, sort_order)
+                              VALUES(:xmltv_id, :site, :site_lang, null, false, 0)
                               ON CONFLICT(xmltv_id)
                               DO UPDATE SET site = :site, site_lang = :site_lang
                             """)
@@ -45,13 +45,27 @@ public class BookmarkDatabase {
     public void updateUrlBookmark(Bookmark bookmark) {
         try (Connection con = database.getBookmarkConnection()) {
             con.createQuery("""
-                            INSERT INTO bookmarks (xmltv_id, site, site_lang, url, active)
-                              VALUES(:xmltv_id, null, null, :url, false)
+                            INSERT INTO bookmarks (xmltv_id, site, site_lang, url, active, sort_order)
+                              VALUES(:xmltv_id, null, null, :url, false, 0)
                               ON CONFLICT(xmltv_id)
                               DO UPDATE SET url = :url
                             """)
                     .addParameter("xmltv_id", bookmark.xmltv_id())
                     .addParameter("url", bookmark.url())
+                    .executeUpdate();
+        }
+    }
+
+    public void updateSortOrderBookmark(Bookmark bookmark) {
+        try (Connection con = database.getBookmarkConnection()) {
+            con.createQuery("""
+                            INSERT INTO bookmarks (xmltv_id, site, site_lang, url, active, sort_order)
+                              VALUES(:xmltv_id, null, null, null, false, :sort_order)
+                              ON CONFLICT(xmltv_id)
+                              DO UPDATE SET sort_order = :sort_order
+                            """)
+                    .addParameter("xmltv_id", bookmark.xmltv_id())
+                    .addParameter("sort_order", bookmark.sort_order())
                     .executeUpdate();
         }
     }
@@ -84,7 +98,7 @@ public class BookmarkDatabase {
 
     public List<Bookmark> getAllBookmarks() {
         try (Connection con = database.getBookmarkConnection()) {
-            return con.createQuery("SELECT * FROM bookmarks")
+            return con.createQuery("SELECT * FROM bookmarks order by sort_order asc")
                     .executeAndFetch(Bookmark.class);
         }
     }

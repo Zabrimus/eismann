@@ -69,12 +69,20 @@ public class EpgStreamDatabase {
         List<Stream> allStreams = getAllStreams();
         List<Bookmark> bookmarks = bookmarkDatabase.getAllBookmarks();
 
-        // create set of xmltv_ids
-        Set<String> xmltv_ids = new HashSet<>();
-        bookmarks.stream().map(Bookmark::xmltv_id).forEach(xmltv_ids::add);
+        List<Stream> result = new ArrayList<>();
+
+        Map<String, Stream> streamMap = new HashMap<>();
+        allStreams.stream().forEach(stream -> streamMap.put(stream.xmltv_id(), stream));
+
+        bookmarks.stream().forEach(bookmark -> {
+            Stream r = streamMap.get(bookmark.xmltv_id());
+            if (r != null) {
+                result.add(r);
+            }
+        });
 
         // filter streams
-        return allStreams.stream().filter(stream -> xmltv_ids.contains(stream.xmltv_id())).toList();
+        return result;
     }
 
     public Country getCountry(String code) {

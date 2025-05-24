@@ -1,8 +1,6 @@
 package vciptvman.component;
 
-import com.vaadin.flow.component.ClickEvent;
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.ComponentEventListener;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -10,6 +8,8 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.grid.dataview.GridListDataView;
+import com.vaadin.flow.component.grid.dnd.GridDropLocation;
+import com.vaadin.flow.component.grid.dnd.GridDropMode;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -18,13 +18,10 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
-import com.vaadin.flow.data.provider.DataKeyMapper;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.renderer.LitRenderer;
 import com.vaadin.flow.data.renderer.Renderer;
-import com.vaadin.flow.data.renderer.Rendering;
 import com.vaadin.flow.data.value.ValueChangeMode;
-import com.vaadin.flow.dom.Element;
 import vciptvman.database.BookmarkDatabase;
 import vciptvman.database.EpgStreamDatabase;
 import vciptvman.model.*;
@@ -39,6 +36,10 @@ public class StreamComponent extends VerticalLayout {
 
     private Grid<Stream> streamsGrid;
     private Map<String, String> categories;
+    private Stream draggedItem;
+
+    List<Stream> streams;
+    GridListDataView<Stream> dataView;
 
     private boolean showOnlyBookmarked;
 
@@ -144,6 +145,8 @@ public class StreamComponent extends VerticalLayout {
     private Grid<Stream> createStreamsGrid(List<Stream> streams) {
         Grid<Stream> grid = new Grid<>(Stream.class, false);
 
+        this.streams = streams;
+
         grid.addColumn(createBookmarkRenderer(grid)).setWidth("50px").setFlexGrow(0).setFrozen(true);
         grid.addColumn(createToggleDetailsRenderer(grid)).setWidth("70px").setFlexGrow(0).setFrozen(true);
 
@@ -163,7 +166,7 @@ public class StreamComponent extends VerticalLayout {
             grid.addColumn(createDeleteButton());
         }
 
-        GridListDataView<Stream> dataView = grid.setItems(streams);
+        dataView = grid.setItems(streams);
         grid.setMultiSort(true, Grid.MultiSortPriority.APPEND);
         grid.setItemDetailsRenderer(createStreamDetailsRenderer());
 
@@ -173,13 +176,53 @@ public class StreamComponent extends VerticalLayout {
         headerRow.getCell(countryColumn).setComponent(createCountryFilterHeader(getAvailableCountries(streams), streamFilter::setCountry));
         headerRow.getCell(categoryColumn).setComponent(createCategoryFilterHeader(streamFilter::setCategory));
 
+        if (showOnlyBookmarked) {
+            grid.setRowsDraggable(true);
+
+            grid.addDragStartListener(e -> {
+                draggedItem = e.getDraggedItems().get(0);
+                grid.setDropMode(GridDropMode.BETWEEN);
+            });
+
+            grid.addDropListener(e -> {
+                Stream targetStream = e.getDropTargetItem().orElse(null);
+                GridDropLocation dropLocation = e.getDropLocation();
+
+                boolean personWasDroppedOntoItself = draggedItem.equals(targetStream);
+
+                if (targetStream == null || personWasDroppedOntoItself)
+                    return;
+
+                dataView.removeItem(draggedItem);
+
+                if (dropLocation == GridDropLocation.BELOW) {
+                    dataView.addItemAfter(draggedItem, targetStream);
+                } else {
+                    dataView.addItemBefore(draggedItem, targetStream);
+                }
+            });
+
+            grid.addDragEndListener(e -> {
+                for (int i = 0; i < dataView.getItemCount(); ++i) {
+                    Stream s = dataView.getItem(i);
+                    bookmarks.updateSortOrderBookmark(new Bookmark(s.xmltv_id(), null, null, null, false, i));
+                }
+
+                draggedItem = null;
+                grid.setDropMode(null);
+            });
+        }
+
         return grid;
     }
 
     private List<Country> getAvailableCountries(List<Stream> streams) {
         List<Country> countries = new ArrayList<>();
-        streams.stream().map(Stream::country_code).distinct().forEach(e -> {
-            countries.add(epgstream.getCountry(e));
+
+        streams.stream().map(Stream::country_code).distinct().forEach(s -> {
+            if (s != null) {
+                countries.add(epgstream.getCountry(s));
+            }
         });
 
         countries.sort((o1, o2) -> {
@@ -209,7 +252,7 @@ public class StreamComponent extends VerticalLayout {
         return new ComponentRenderer<>(stream -> {
             Checkbox checkbox = new Checkbox();
             checkbox.addValueChangeListener(b -> {
-                bookmarks.updateEnabledBookmark(new Bookmark(stream.xmltv_id(), null, null, null, b.getValue()));
+                bookmarks.updateEnabledBookmark(new Bookmark(stream.xmltv_id(), null, null, null, b.getValue(), 0));
             });
 
             checkbox.setValue(bookmarks.getActive(stream.xmltv_id()));
@@ -231,7 +274,7 @@ public class StreamComponent extends VerticalLayout {
                 cbProvider.setItemLabelGenerator(site -> site.site() != null ? site.site() + " (" + site.site_lang() + ")" : "");
 
                 cbProvider.addValueChangeListener(b -> {
-                    bookmarks.updateSiteBookmark(new Bookmark(stream.xmltv_id(), b.getValue().site(), b.getValue().site_lang(), null, false));
+                    bookmarks.updateSiteBookmark(new Bookmark(stream.xmltv_id(), b.getValue().site(), b.getValue().site_lang(), null, false, 0));
                 });
 
                 cbProvider.setValue(bookmarks.getSite(stream.xmltv_id()));
@@ -282,9 +325,9 @@ public class StreamComponent extends VerticalLayout {
                     Optional val = event.getFirstSelectedItem();
                     if (val.isPresent()) {
                         StreamUrl url = (StreamUrl) val.get();
-                        bookmarks.updateUrlBookmark(new Bookmark(stream.xmltv_id(), null, null, url.url(), false));
+                        bookmarks.updateUrlBookmark(new Bookmark(stream.xmltv_id(), null, null, url.url(), false, 0));
                     } else {
-                        bookmarks.updateUrlBookmark(new Bookmark(stream.xmltv_id(), null, null, null, false));
+                        bookmarks.updateUrlBookmark(new Bookmark(stream.xmltv_id(), null, null, null, false, 0));
                     }
                 });
             }

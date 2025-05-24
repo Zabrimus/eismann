@@ -5,8 +5,10 @@ import org.sql2o.Sql2o;
 import org.sql2o.converters.ConverterException;
 import org.sql2o.quirks.NoQuirks;
 import org.sql2o.quirks.Quirks;
+import vciptvman.model.Bookmark;
 
 import java.sql.SQLException;
+import java.util.List;
 
 public class IpTVDatabase {
 
@@ -95,21 +97,31 @@ public class IpTVDatabase {
                         site_lang TEXT,
                         url       TEXT,
                         active    BOOLEAN DEFAULT(false),
+                        sort_order INTEGER DEFAULT(0),
                     
                         unique (xmltv_id)
                     )
                     """;
 
-            String sql2 = """
-                    CREATE TABLE blocklist (
-                        xmltv_id TEST NOT NULL,
-                    
-                        unique (xmltv_id)
-                    );
-                    """;
-
             con.createQuery(sql1).executeUpdate();
-            con.createQuery(sql2).executeUpdate();
+        }
+
+        // update bookmarks if necessary
+        try {
+            con.createQuery("ALTER TABLE bookmarks ADD sort_order").executeUpdate();
+
+            // if we reach this point, the column needs some updates
+            List<Bookmark> b = con.createQuery("SELECT * FROM bookmarks order by upper(xmltv_id) asc").executeAndFetch(Bookmark.class);
+
+            int i = 1;
+            for (Bookmark bookmark : b) {
+                con.createQuery("UPDATE bookmarks SET sort_order = :sort_order WHERE xmltv_id = :xmltv_id")
+                        .addParameter("xmltv_id", bookmark.xmltv_id())
+                        .addParameter("sort_order", i++)
+                        .executeUpdate();
+            }
+        } catch (Exception e) {
+            // ignore this, because column possibly exists already
         }
     }
 
