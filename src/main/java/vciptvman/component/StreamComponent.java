@@ -205,7 +205,7 @@ public class StreamComponent extends VerticalLayout {
             grid.addDragEndListener(e -> {
                 for (int i = 0; i < dataView.getItemCount(); ++i) {
                     Stream s = dataView.getItem(i);
-                    bookmarks.updateSortOrderBookmark(new Bookmark(s.xmltv_id(), null, null, null, false, i));
+                    bookmarks.updateSortOrderBookmark(new Bookmark(s.xmltv_id(), null, null, null, false, i+1));
                 }
 
                 draggedItem = null;
