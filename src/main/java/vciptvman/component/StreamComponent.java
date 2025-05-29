@@ -22,6 +22,7 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.renderer.LitRenderer;
 import com.vaadin.flow.data.renderer.Renderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import org.apache.commons.lang3.StringUtils;
 import vciptvman.database.BookmarkDatabase;
 import vciptvman.database.EpgStreamDatabase;
 import vciptvman.model.*;
@@ -310,6 +311,8 @@ public class StreamComponent extends VerticalLayout {
             Grid<StreamUrl> grid = null;
             List<StreamUrl> urlList = epgstream.getStreamUrls(stream.xmltv_id());
             if (!urlList.isEmpty()) {
+                System.err.println("Found " + urlList.size() + " urls for " + stream.name() + ", " + urlList);
+
                 grid = new Grid<>(StreamUrl.class, false);
 
                 grid.addColumn(createVideoPreviewRenderer()).setSortable(false).setAutoWidth(true).setFlexGrow(0);
@@ -319,7 +322,7 @@ public class StreamComponent extends VerticalLayout {
                 grid.setAllRowsVisible(true);
 
                 String bookmarkedUrl = bookmarks.getUrl(stream.xmltv_id());
-                urlList.stream().filter(url -> url.url().equals(bookmarkedUrl)).findFirst().ifPresent(grid::select);
+                urlList.stream().filter(url -> StringUtils.isNotEmpty(url.url()) && url.url().equals(bookmarkedUrl)).findFirst().ifPresent(grid::select);
 
                 grid.addSelectionListener(event -> {
                     Optional val = event.getFirstSelectedItem();
