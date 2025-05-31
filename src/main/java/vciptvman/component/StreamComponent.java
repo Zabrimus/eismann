@@ -300,6 +300,10 @@ public class StreamComponent extends VerticalLayout {
                 UI.getCurrent().getPage().open("https://" + bookmarks.getSite(stream.xmltv_id()).site(), "_blank");
             });
 
+            TextField xmltvId = new TextField();
+            xmltvId.setValue(stream.xmltv_id());
+            xmltvId.setWidth("50em");
+
             if (stream.website() == null) {
                 homepage.setEnabled(false);
             }
@@ -311,13 +315,11 @@ public class StreamComponent extends VerticalLayout {
             Grid<StreamUrl> grid = null;
             List<StreamUrl> urlList = epgstream.getStreamUrls(stream.xmltv_id());
             if (!urlList.isEmpty()) {
-                System.err.println("Found " + urlList.size() + " urls for " + stream.name() + ", " + urlList);
-
                 grid = new Grid<>(StreamUrl.class, false);
 
                 grid.addColumn(createVideoPreviewRenderer()).setSortable(false).setAutoWidth(true).setFlexGrow(0);
                 grid.addColumn(StreamUrl::name).setHeader("Name").setSortable(false).setAutoWidth(true).setFlexGrow(0);
-                grid.addColumn(StreamUrl::url).setHeader("URL").setSortable(false).setAutoWidth(true).setFlexGrow(0);
+                grid.addColumn(StreamUrl::url).setHeader("URL").setSortable(false).setAutoWidth(true).setFlexGrow(1);
                 grid.setItems(urlList);
                 grid.setAllRowsVisible(true);
 
@@ -336,7 +338,8 @@ public class StreamComponent extends VerticalLayout {
             }
 
             VerticalLayout vLayout = new VerticalLayout();
-            HorizontalLayout hLayout = new HorizontalLayout(homepage, epgwebsite);
+            HorizontalLayout hLayout = new HorizontalLayout(homepage, epgwebsite, xmltvId);
+
             vLayout.add(hLayout);
 
             if (grid != null) {

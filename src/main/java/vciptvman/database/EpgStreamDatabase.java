@@ -30,16 +30,20 @@ public class EpgStreamDatabase {
                                                     co.name country,
                                                     co.code country_code,
                                                     co.flag,
-                                                    coalesce(c.categories, c2.categories) categories,
-                                                    coalesce(c.website, c2.website) website,
-                                                    coalesce(c.logo, c2.logo) logo
+                                                    coalesce(coalesce(c.categories, c2.categories), c3.categories) categories,
+                                                    coalesce(coalesce(c.website, c2.website), c3.website) website,
+                                                    coalesce(coalesce(c.logo, c2.logo), c3.logo) logo
                                     from streams s, xmltvid x, countries co
-                                                                   left join channels c on c.ref_xmltvid = x.id
-                                                                   left join channels c2 on c2.ref_xmltvid = (
+                                    left join channels c on c.ref_xmltvid = x.id
+                                    left join channels c2 on c2.ref_xmltvid = (
                                         select id
                                         from xmltvid x2
-                                        where x2.xmltv_id = SUBSTR(x.xmltv_id, 1, INSTR(x.xmltv_id, '@') - 1)
-                                          and  x.xmltv_id like '%@%'
+                                        where x2.xmltv_id = SUBSTR(x.xmltv_id, 1, INSTR(x.xmltv_id, '@') - 1) and x.xmltv_id like '%@%'
+                                    )
+                                    left join channels c3 on c3.ref_xmltvid = (
+                                        select id
+                                        from xmltvid x3
+                                        where x3.xmltv_id = SUBSTR(x.xmltv_id2, 1, INSTR(x.xmltv_id2, '@') - 1) and x.xmltv_id2 like '%@%'
                                     )
                                     where s.ref_xmltvid = x.id
                                       and x.country = co.code
@@ -51,17 +55,22 @@ public class EpgStreamDatabase {
                                                     co.name country,
                                                     co.code country_code,
                                                     co.flag,
-                                                    coalesce(c.categories, c2.categories) categories,
-                                                    coalesce(c.website, c2.website) website,
-                                                    coalesce(c.logo, c2.logo) logo
+                                                    coalesce(coalesce(c.categories, c2.categories), c3.categories) categories,
+                                                    coalesce(coalesce(c.website, c2.website), c3.website) website,
+                                                    coalesce(coalesce(c.logo, c2.logo), c3.logo) logo
                                     from epg_channels e, xmltvid x
-                                                             left join countries co on x.country = co.code
-                                                             left join channels c on c.ref_xmltvid = x.id
-                                                             left join channels c2 on c2.ref_xmltvid = (
+                                    left join countries co on x.country = co.code
+                                    left join channels c on c.ref_xmltvid = x.id
+                                    left join channels c2 on c2.ref_xmltvid = (
                                         select id
                                         from xmltvid x2
                                         where x2.xmltv_id = SUBSTR(x.xmltv_id, 1, INSTR(x.xmltv_id, '@') - 1)
                                           and  x.xmltv_id like '%@%'
+                                    )
+                                    left join channels c3 on c3.ref_xmltvid = (
+                                        select id
+                                        from xmltvid x3
+                                        where x3.xmltv_id = SUBSTR(x.xmltv_id2, 1, INSTR(x.xmltv_id2, '@') - 1) and x.xmltv_id2 like '%@%'
                                     )
                                     where e.ref_xmltvid = x.id
                     """)
