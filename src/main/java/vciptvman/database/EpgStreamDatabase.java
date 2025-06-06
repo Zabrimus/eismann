@@ -25,55 +25,47 @@ public class EpgStreamDatabase {
     public List<Stream> getAllStreams() {
         try (Connection con = database.getEpgConnection()) {
             return con.createQuery("""
-                                    select distinct IIF(instr(x.xmltv_id2, '@') = 0, x.xmltv_id2, x.xmltv_id) xmltv_id,
-                                                    x.name name,
-                                                    co.name country,
-                                                    co.code country_code,
-                                                    co.flag,
-                                                    coalesce(coalesce(c.categories, c2.categories), c3.categories) categories,
-                                                    coalesce(coalesce(c.website, c2.website), c3.website) website,
-                                                    coalesce(coalesce(c.logo, c2.logo), c3.logo) logo
-                                    from streams s, xmltvid x, countries co
-                                    left join channels c on c.ref_xmltvid = x.id
-                                    left join channels c2 on c2.ref_xmltvid = (
-                                        select id
-                                        from xmltvid x2
-                                        where x2.xmltv_id = SUBSTR(x.xmltv_id, 1, INSTR(x.xmltv_id, '@') - 1) and x.xmltv_id like '%@%'
-                                    )
-                                    left join channels c3 on c3.ref_xmltvid = (
-                                        select id
-                                        from xmltvid x3
-                                        where x3.xmltv_id = SUBSTR(x.xmltv_id2, 1, INSTR(x.xmltv_id2, '@') - 1) and x.xmltv_id2 like '%@%'
-                                    )
-                                    where s.ref_xmltvid = x.id
-                                      and x.country = co.code
-                    
-                                    union
-                    
-                                    select distinct IIF(instr(x.xmltv_id2, '@') = 0, x.xmltv_id2, x.xmltv_id) xmltv_id,
-                                                    x.name,
-                                                    co.name country,
-                                                    co.code country_code,
-                                                    co.flag,
-                                                    coalesce(coalesce(c.categories, c2.categories), c3.categories) categories,
-                                                    coalesce(coalesce(c.website, c2.website), c3.website) website,
-                                                    coalesce(coalesce(c.logo, c2.logo), c3.logo) logo
-                                    from epg_channels e, xmltvid x
-                                    left join countries co on x.country = co.code
-                                    left join channels c on c.ref_xmltvid = x.id
-                                    left join channels c2 on c2.ref_xmltvid = (
-                                        select id
-                                        from xmltvid x2
-                                        where x2.xmltv_id = SUBSTR(x.xmltv_id, 1, INSTR(x.xmltv_id, '@') - 1)
-                                          and  x.xmltv_id like '%@%'
-                                    )
-                                    left join channels c3 on c3.ref_xmltvid = (
-                                        select id
-                                        from xmltvid x3
-                                        where x3.xmltv_id = SUBSTR(x.xmltv_id2, 1, INSTR(x.xmltv_id2, '@') - 1) and x.xmltv_id2 like '%@%'
-                                    )
-                                    where e.ref_xmltvid = x.id
+                        SELECT * FROM (
+                            SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo 
+                            FROM streams s
+                            LEFT JOIN countries co ON co.code = s.country
+                            LEFT JOIN channels ch ON ch.id = s.ref_channel_id                            
+                        
+                            UNION
+                        
+                            SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo 
+                            FROM epg_channels s
+                            LEFT JOIN countries co ON co.code = s.country
+                            LEFT JOIN channels ch ON ch.id = s.ref_channel_id                            
+                        )                        
+                        GROUP BY xmltv_id
+                        ORDER BY upper(name);
                     """)
+                    .executeAndFetch(Stream.class);
+        }
+    }
+
+    public List<Stream> getAllStreamsWithSite(String site) {
+        try (Connection con = database.getEpgConnection()) {
+            return con.createQuery("""
+                        SELECT * FROM (
+                                SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo
+                                      FROM streams s
+                                              LEFT JOIN countries co ON co.code = s.country
+                                              LEFT JOIN channels ch ON ch.id = s.ref_channel_id
+                    
+                                              UNION
+                    
+                                              SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo
+                                      FROM epg_channels s
+                                        LEFT JOIN countries co ON co.code = s.country
+                                        LEFT JOIN channels ch ON ch.id = s.ref_channel_id
+                        ) a
+                        WHERE (SELECT count(*) FROM epg_channels e WHERE a.xmltv_id = e.xmltv_id AND site = :site) > 0
+                        GROUP BY xmltv_id
+                        ORDER by upper(name);
+                    """)
+                    .addParameter("site", site)
                     .executeAndFetch(Stream.class);
         }
     }
@@ -111,13 +103,9 @@ public class EpgStreamDatabase {
     public List<EpgSite> getEpgProviderById(String id) {
         try (Connection con = database.getEpgConnection()) {
             List<EpgSite> result = con.createQuery("""
-                            SELECT site, lang site_lang
-                            FROM epg_channels e
-                            WHERE e.ref_xmltvid = (
-                                    SELECT id
-                                    FROM xmltvid x
-                                    WHERE x.xmltv_id = :id
-                                    OR x.xmltv_id2 = :id)
+                            SELECT site, lang site_lang 
+                            FROM epg_channels 
+                            WHERE xmltv_id = :id                        
                         """)
                     .addParameter("id", id)
                     .executeAndFetch(EpgSite.class);
@@ -127,15 +115,28 @@ public class EpgStreamDatabase {
         }
     }
 
+    public boolean hasProviderXmltvId(String xmltv_id, String provider) {
+        try (Connection con = database.getEpgConnection()) {
+            int result = con.createQuery("""
+                            SELECT count(*) FROM epg_channels
+                            WHERE site = :site
+                            AND xmltv_id = :xmltv_id
+                          """)
+                    .addParameter("site", provider)
+                    .addParameter("xmltv_id", xmltv_id)
+                    .executeScalar(Integer.class);
+
+            return result > 0;
+        }
+    }
+
     public List<StreamUrl> getStreamUrls(String id) {
         try (Connection con = database.getEpgConnection()) {
             List<StreamUrl> result = con.createQuery("""
-                            SELECT x.name, s.url 
-                            FROM xmltvid x
-                            LEFT JOIN streams s ON s.ref_xmltvid = x.id
-                            WHERE x.xmltv_id = :id
-                            OR    x.xmltv_id2 = :id
-                    """)
+                            SELECT s.name, s.url
+                            FROM streams s
+                            WHERE s.xmltv_id = :id
+                        """)
                     .addParameter("id", id)
                     .executeAndFetch(StreamUrl.class);
 
@@ -146,10 +147,7 @@ public class EpgStreamDatabase {
     public String getName(String xmltv_id) {
         try (Connection con = database.getEpgConnection()) {
             return con.createQuery("""
-                            SELECT x.name 
-                            FROM xmltvid x
-                            LEFT JOIN channels c on x.id = c.ref_xmltvid
-                            WHERE x.xmltv_id = :id OR x.xmltv_id2 = :id;
+                            SELECT name FROM channels WHERE xmltv_id = :xmltv_id
                             """)
                     .addParameter("id", xmltv_id)
                     .executeAndFetchFirst(String.class);
@@ -159,14 +157,22 @@ public class EpgStreamDatabase {
     public String getSiteId(String xmltv_id, String site, String lang) {
         try (Connection con = database.getEpgConnection()) {
             return con.createQuery("""
-                            SELECT site_id 
-                            FROM xmltvid x
-                            LEFT JOIN epg_channels c ON x.id = c.ref_xmltvid AND c.site = :site
-                            where x.xmltv_id = :xmltv_id OR x.xmltv_id2 = :xmltv_id;
+                            SELECT site_id from epg_channels WHERE xmltv_id = :xmltv_id
                           """)
                     .addParameter("xmltv_id", xmltv_id)
                     .addParameter("site", site)
                     .executeAndFetchFirst(String.class);
+        }
+    }
+
+    public List<String> getAllEpgSites() {
+        try (Connection con = database.getEpgConnection()) {
+            return con.createQuery("""
+                            SELECT DISTINCT site
+                            FROM epg_channels
+                            ORDER BY site;
+                          """)
+                    .executeAndFetch(String.class);
         }
     }
 
