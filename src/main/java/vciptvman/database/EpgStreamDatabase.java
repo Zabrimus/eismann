@@ -85,6 +85,9 @@ public class EpgStreamDatabase {
             Stream r = streamMap.get(bookmark.xmltv_id());
             if (r != null) {
                 result.add(r);
+            } else {
+                Stream n = new Stream(bookmark.xmltv_id(), "Invalid: " + bookmark.xmltv_id(), null, null, null, null, null, null );
+                result.add(n);
             }
         });
 
@@ -147,9 +150,9 @@ public class EpgStreamDatabase {
     public String getName(String xmltv_id) {
         try (Connection con = database.getEpgConnection()) {
             return con.createQuery("""
-                            SELECT name FROM channels WHERE xmltv_id = :xmltv_id
+                            SELECT distinct name FROM epg_channels WHERE xmltv_id = :xmltv_id
                             """)
-                    .addParameter("id", xmltv_id)
+                    .addParameter("xmltv_id", xmltv_id)
                     .executeAndFetchFirst(String.class);
         }
     }
@@ -157,10 +160,11 @@ public class EpgStreamDatabase {
     public String getSiteId(String xmltv_id, String site, String lang) {
         try (Connection con = database.getEpgConnection()) {
             return con.createQuery("""
-                            SELECT site_id from epg_channels WHERE xmltv_id = :xmltv_id
+                            SELECT site_id from epg_channels WHERE xmltv_id = :xmltv_id and site = :site and lang = :lang
                           """)
                     .addParameter("xmltv_id", xmltv_id)
                     .addParameter("site", site)
+                    .addParameter("lang", lang)
                     .executeAndFetchFirst(String.class);
         }
     }

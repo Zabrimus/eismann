@@ -107,7 +107,15 @@ public class StreamComponent extends VerticalLayout {
         List<Bookmark> b = bookmarks.getAllBookmarks();
         b.stream().forEach(bookmark -> {
             if (bookmark.site() != null && !bookmark.site().isEmpty()) {
-                buffer.append("    <channel site=\"" + bookmark.site() + "\" lang=\"" + bookmark.site_lang() + "\" xmltv_id=\"" + bookmark.xmltv_id() + "\" site_id=\"" + epgstream.getSiteId(bookmark.xmltv_id(), bookmark.site(), bookmark.site_lang()) + "\">" + epgstream.getName(bookmark.xmltv_id()) + "</channel>\n");
+                String siteId = epgstream.getSiteId(bookmark.xmltv_id(), bookmark.site(), bookmark.site_lang());
+
+                if (StringUtils.isNotEmpty(siteId)) {
+                    buffer.append("    <channel site=\"" + bookmark.site() + "\" lang=\"" + bookmark.site_lang() + "\" xmltv_id=\"" + bookmark.xmltv_id() + "\" site_id=\"" + siteId + "\">" + epgstream.getName(bookmark.xmltv_id()) + "</channel>\n");
+                } else {
+                    buffer.append("<!-- Dieser Kanal kann nicht gefunden werden. Wahrscheinlich stimmt die xmltv_id nicht.\n");
+                    buffer.append("    <channel site=\"" + bookmark.site() + "\" lang=\"" + bookmark.site_lang() + "\" xmltv_id=\"" + bookmark.xmltv_id() + "\" site_id=\"" + siteId + "\">" + epgstream.getName(bookmark.xmltv_id()) + "</channel>\n");
+                    buffer.append("-->\n");
+                }
             }
         });
 
@@ -167,7 +175,7 @@ public class StreamComponent extends VerticalLayout {
         nameColumn = grid.addColumn(createLogoRenderer()).setHeader("Name").setSortable(true).setComparator(logoNameComp);
         countryColumn = grid.addColumn(createCountryColumnRenderer()).setHeader("Country").setSortable(true).setComparator(Stream::country);
         categoryColumn = grid.addColumn(createCategoryRenderer()).setHeader("Category").setSortable(true).setComparator(Stream::categories);
-        epgColumn = grid.addColumn(createEpgProviderRenderer()).setHeader("EPG Provider").setSortable(true);
+        epgColumn = grid.addColumn(createEpgProviderRenderer()).setHeader("EPG Provider").setSortable(false);
 
         if (showOnlyBookmarked) {
             grid.addColumn(createDeleteButton());
@@ -228,7 +236,10 @@ public class StreamComponent extends VerticalLayout {
         headerRow.getCell(nameColumn).setComponent(createNameFilterHeader(e -> streamFilter.setName(e)));
         headerRow.getCell(countryColumn).setComponent(createCountryFilterHeader(getAvailableCountries(streams), e -> streamFilter.setCountry(e)));
         headerRow.getCell(categoryColumn).setComponent(createCategoryFilterHeader(e -> streamFilter.setCategory(e)));
-        headerRow.getCell(epgColumn).setComponent(createEpgSiteFilterHeader());
+
+        if (!showOnlyBookmarked) {
+            headerRow.getCell(epgColumn).setComponent(createEpgSiteFilterHeader());
+        }
     }
 
     private List<Country> getAvailableCountries(List<Stream> streams) {
