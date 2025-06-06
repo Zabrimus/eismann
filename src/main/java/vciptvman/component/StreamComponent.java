@@ -18,6 +18,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
+import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.renderer.LitRenderer;
 import com.vaadin.flow.data.renderer.Renderer;
@@ -32,17 +33,22 @@ import java.util.function.Consumer;
 
 public class StreamComponent extends VerticalLayout {
 
-    private EpgStreamDatabase epgstream;
-    private BookmarkDatabase bookmarks;
+    private static EpgStreamDatabase epgstream;
+    private static BookmarkDatabase bookmarks;
 
     private Grid<Stream> streamsGrid;
     private Map<String, String> categories;
     private Stream draggedItem;
+    StreamFilter streamFilter;
 
     List<Stream> streams;
-    GridListDataView<Stream> dataView;
 
     private boolean showOnlyBookmarked;
+
+    private Grid.Column<Stream> nameColumn;
+    private Grid.Column<Stream> countryColumn;
+    private Grid.Column<Stream> categoryColumn;
+    private Grid.Column<Stream> epgColumn;
 
     public StreamComponent(boolean bookmarked) {
         showOnlyBookmarked = bookmarked;
@@ -158,24 +164,22 @@ public class StreamComponent extends VerticalLayout {
             }
         };
 
-        Grid.Column<Stream> nameColumn = grid.addColumn(createLogoRenderer()).setHeader("Name").setSortable(true).setComparator(logoNameComp);
-        Grid.Column<Stream> countryColumn = grid.addColumn(createCountryColumnRenderer()).setHeader("Country").setSortable(true).setComparator(Stream::country);
-        Grid.Column<Stream> categoryColumn = grid.addColumn(createCategoryRenderer()).setHeader("Category").setSortable(true).setComparator(Stream::categories);
-        Grid.Column<Stream> epgColumn = grid.addColumn(createEpgProviderRenderer()).setHeader("EPG Provider").setSortable(true);
+        nameColumn = grid.addColumn(createLogoRenderer()).setHeader("Name").setSortable(true).setComparator(logoNameComp);
+        countryColumn = grid.addColumn(createCountryColumnRenderer()).setHeader("Country").setSortable(true).setComparator(Stream::country);
+        categoryColumn = grid.addColumn(createCategoryRenderer()).setHeader("Category").setSortable(true).setComparator(Stream::categories);
+        epgColumn = grid.addColumn(createEpgProviderRenderer()).setHeader("EPG Provider").setSortable(true);
 
         if (showOnlyBookmarked) {
             grid.addColumn(createDeleteButton());
         }
 
-        dataView = grid.setItems(streams);
+        grid.setItems(streams);
         grid.setMultiSort(true, Grid.MultiSortPriority.APPEND);
         grid.setItemDetailsRenderer(createStreamDetailsRenderer());
 
-        StreamFilter streamFilter = new StreamFilter(dataView);
-        HeaderRow headerRow = grid.appendHeaderRow();
-        headerRow.getCell(nameColumn).setComponent(createNameFilterHeader(streamFilter::setName));
-        headerRow.getCell(countryColumn).setComponent(createCountryFilterHeader(getAvailableCountries(streams), streamFilter::setCountry));
-        headerRow.getCell(categoryColumn).setComponent(createCategoryFilterHeader(streamFilter::setCategory));
+        streamFilter = new StreamFilter(grid.getListDataView());
+
+        addFilterHeader(streams, grid);
 
         if (showOnlyBookmarked) {
             grid.setRowsDraggable(true);
@@ -194,18 +198,18 @@ public class StreamComponent extends VerticalLayout {
                 if (targetStream == null || personWasDroppedOntoItself)
                     return;
 
-                dataView.removeItem(draggedItem);
+                streamsGrid.getListDataView().removeItem(draggedItem);
 
                 if (dropLocation == GridDropLocation.BELOW) {
-                    dataView.addItemAfter(draggedItem, targetStream);
+                    streamsGrid.getListDataView().addItemAfter(draggedItem, targetStream);
                 } else {
-                    dataView.addItemBefore(draggedItem, targetStream);
+                    streamsGrid.getListDataView().addItemBefore(draggedItem, targetStream);
                 }
             });
 
             grid.addDragEndListener(e -> {
-                for (int i = 0; i < dataView.getItemCount(); ++i) {
-                    Stream s = dataView.getItem(i);
+                for (int i = 0; i < streamsGrid.getListDataView().getItemCount(); ++i) {
+                    Stream s = streamsGrid.getListDataView().getItem(i);
                     bookmarks.updateSortOrderBookmark(new Bookmark(s.xmltv_id(), null, null, null, false, i+1));
                 }
 
@@ -215,6 +219,16 @@ public class StreamComponent extends VerticalLayout {
         }
 
         return grid;
+    }
+
+    private void addFilterHeader(List<Stream> streams, Grid<Stream> grid) {
+        grid.removeAllHeaderRows();
+
+        HeaderRow headerRow = grid.appendHeaderRow();
+        headerRow.getCell(nameColumn).setComponent(createNameFilterHeader(e -> streamFilter.setName(e)));
+        headerRow.getCell(countryColumn).setComponent(createCountryFilterHeader(getAvailableCountries(streams), e -> streamFilter.setCountry(e)));
+        headerRow.getCell(categoryColumn).setComponent(createCategoryFilterHeader(e -> streamFilter.setCategory(e)));
+        headerRow.getCell(epgColumn).setComponent(createEpgSiteFilterHeader());
     }
 
     private List<Country> getAvailableCountries(List<Stream> streams) {
@@ -468,6 +482,33 @@ public class StreamComponent extends VerticalLayout {
         return comboBox;
     }
 
+    private Component createEpgSiteFilterHeader() {
+        ComboBox<String> comboBox = new ComboBox<>();
+        comboBox.setItems(epgstream.getAllEpgSites().stream().sorted().toList());
+        comboBox.setItemLabelGenerator(item -> item);
+        comboBox.getStyle().set("--vaadin-combo-box-overlay-width", "16em");
+        comboBox.setRequired(false);
+        comboBox.addValueChangeListener(e ->  {
+            if (StringUtils.isNotEmpty(e.getValue())) {
+                streams = epgstream.getAllStreamsWithSite(e.getValue());
+            } else {
+                streams = epgstream.getAllStreams();
+            }
+
+            ListDataProvider dp = (ListDataProvider) streamsGrid.getDataProvider();
+            List<Stream> dpList = (List<Stream>) dp.getItems();
+
+            dpList.clear();
+            dpList.addAll(streams);
+
+            streamFilter.setDataView(streamsGrid.getListDataView());
+            streamsGrid.getDataProvider().refreshAll();
+        });
+
+        return comboBox;
+    }
+
+
     private Renderer<EpgSite> createEpgSiteRenderer() {
         return LitRenderer.<EpgSite> of("""
                         <div style="display: flex;">
@@ -481,7 +522,7 @@ public class StreamComponent extends VerticalLayout {
     }
 
     private static class StreamFilter {
-        private final GridListDataView<Stream> dataView;
+        private GridListDataView<Stream> dataView;
 
         private String name;
         private String country;
@@ -490,6 +531,11 @@ public class StreamComponent extends VerticalLayout {
         public StreamFilter(GridListDataView<Stream> dataView) {
             this.dataView = dataView;
             this.dataView.addFilter(this::test);
+        }
+
+        public void setDataView(GridListDataView<Stream> dataView) {
+            this.dataView = dataView;
+            this.dataView.refreshAll();
         }
 
         public void setName(String name) {
