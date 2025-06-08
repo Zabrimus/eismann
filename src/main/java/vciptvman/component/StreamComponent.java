@@ -24,6 +24,7 @@ import com.vaadin.flow.data.renderer.LitRenderer;
 import com.vaadin.flow.data.renderer.Renderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import org.apache.commons.lang3.StringUtils;
+import org.atmosphere.interceptor.AtmosphereResourceStateRecovery;
 import vciptvman.database.BookmarkDatabase;
 import vciptvman.database.EpgStreamDatabase;
 import vciptvman.model.*;
@@ -38,6 +39,9 @@ public class StreamComponent extends VerticalLayout {
 
     private Grid<Stream> streamsGrid;
     private Map<String, String> categories;
+    private Map<String, VdrChannel> vdrChannels = new HashMap<>();
+    private List<VdrChannel> vdrChannelNames = new ArrayList<>();
+
     private Stream draggedItem;
     StreamFilter streamFilter;
 
@@ -49,6 +53,7 @@ public class StreamComponent extends VerticalLayout {
     private Grid.Column<Stream> countryColumn;
     private Grid.Column<Stream> categoryColumn;
     private Grid.Column<Stream> epgColumn;
+    private Grid.Column<Stream> vdrColumn;
 
     public StreamComponent(boolean bookmarked) {
         showOnlyBookmarked = bookmarked;
@@ -57,6 +62,12 @@ public class StreamComponent extends VerticalLayout {
         bookmarks = new BookmarkDatabase();
 
         categories = epgstream.getAllCategories();
+
+        List<VdrChannel> channels = bookmarks.getVdrChannels();
+        channels.stream().forEach(channel -> {
+            vdrChannels.put(channel.xmltv_id(), channel);
+            vdrChannelNames.add(channel);
+        });
 
         createLayout();
     }
@@ -144,9 +155,31 @@ public class StreamComponent extends VerticalLayout {
     private void exportEpgd() {
         StringBuffer buffer = new StringBuffer();
 
-        List<Bookmark> b = bookmarks.getAllBookmarks();
-        b.stream().forEach(bookmark -> {
-            if (bookmark.site() != null && !bookmark.site().isEmpty()) {
+        List<Bookmark> book = bookmarks.getAllBookmarks().stream().filter(b -> b.site() != null && !b.site().isEmpty() && b.active()).toList();
+        List<VdrChannel> chan = bookmarks.getVdrChannels().stream().filter(b -> b.other_id() != null || b.xmltv_id() != null).toList();
+        List<OtherEpgProvider> op = epgstream.getOtherEpgProvider();
+
+        // at first all VdrChannel
+        chan.stream().forEach(c -> {
+            boolean added = false;
+
+            buffer.append("// " + c.name() + "\n");
+            if (c.xmltv_id() != null) {
+                buffer.append("xmltv:" +  c.xmltv_id() + ":1 = " + c.channel_id() + "\n");
+                added = true;
+            }
+
+            if (c.other_id() != null) {
+                buffer.append("other:" +  op.stream().filter(e -> e.name().equals(c.other_id())).findFirst().get().id() + (added ? ":2" : ":1") + " = " + c.channel_id() + "\n");
+            }
+
+            buffer.append("\n");
+        });
+
+        // all Bookmarks which does not exists in VdrChannel
+        book.stream().forEach(bookmark -> {
+            boolean exists = chan.stream().filter(x -> x.xmltv_id() != null && x.xmltv_id().equals(bookmark.xmltv_id())).findFirst().isPresent();
+            if (!exists) {
                 buffer.append("// " + epgstream.getName(bookmark.xmltv_id()) + "\n");
                 buffer.append("xmltv:" + bookmark.xmltv_id() + ":1 = \n\n");
             }
@@ -173,6 +206,7 @@ public class StreamComponent extends VerticalLayout {
         };
 
         nameColumn = grid.addColumn(createLogoRenderer()).setHeader("Name").setSortable(true).setComparator(logoNameComp);
+        vdrColumn = grid.addColumn(createVdrRenderer()).setHeader("VDR").setSortable(false);
         countryColumn = grid.addColumn(createCountryColumnRenderer()).setHeader("Country").setSortable(true).setComparator(Stream::country);
         categoryColumn = grid.addColumn(createCategoryRenderer()).setHeader("Category").setSortable(true).setComparator(Stream::categories);
         epgColumn = grid.addColumn(createEpgProviderRenderer()).setHeader("EPG Provider").setSortable(false);
@@ -237,6 +271,9 @@ public class StreamComponent extends VerticalLayout {
         headerRow.getCell(countryColumn).setComponent(createCountryFilterHeader(getAvailableCountries(streams), e -> streamFilter.setCountry(e)));
         headerRow.getCell(categoryColumn).setComponent(createCategoryFilterHeader(e -> streamFilter.setCategory(e)));
 
+        headerRow.getCell(vdrColumn).setComponent(new Div("VDR channel"));
+        headerRow.getCell(epgColumn).setComponent(new Div("EPG Provider"));
+
         if (!showOnlyBookmarked) {
             headerRow.getCell(epgColumn).setComponent(createEpgSiteFilterHeader());
         }
@@ -300,7 +337,8 @@ public class StreamComponent extends VerticalLayout {
                 cbProvider.setItemLabelGenerator(site -> site.site() != null ? site.site() + " (" + site.site_lang() + ")" : "");
 
                 cbProvider.addValueChangeListener(b -> {
-                    bookmarks.updateSiteBookmark(new Bookmark(stream.xmltv_id(), b.getValue().site(), b.getValue().site_lang(), null, false, 0));
+                    bookmarks.updateSiteBookmark(new Bookmark(stream.xmltv_id(), b.getValue() != null ? b.getValue().site() : null, b.getValue() != null ? b.getValue().site_lang() : null, null, false, 0));
+                    bookmarks.setVdrChannel(stream, null, null);
                 });
 
                 cbProvider.setValue(bookmarks.getSite(stream.xmltv_id()));
@@ -397,6 +435,31 @@ public class StreamComponent extends VerticalLayout {
                 .withProperty("name", Stream::name);
     }
 
+    private Renderer<Stream> createVdrRenderer() {
+        return new ComponentRenderer<>(stream -> {
+            ComboBox<VdrChannel> vdrs =  new ComboBox<>();
+            vdrs.setItems(vdrChannelNames);
+            vdrs.setRenderer(createvdrNameRenderer());
+            vdrs.setItemLabelGenerator(ch -> ch != null ? ch.name() : "");
+            vdrs.setValue(vdrChannels.get(stream.xmltv_id()));
+
+            vdrs.addValueChangeListener(event -> {
+                bookmarks.setVdrChannel(stream, event.getValue(), event.getOldValue());
+            });
+
+            return vdrs;
+        });
+    }
+
+    private Renderer<VdrChannel> createvdrNameRenderer() {
+        return LitRenderer.<VdrChannel> of("""
+                        <div style="display: flex;">
+                            ${item.name}
+                        </div>
+                        """)
+                .withProperty("name", VdrChannel::name);
+    }
+
     private Renderer<Stream> createCountryColumnRenderer() {
         return LitRenderer.<Stream> of("""
                         <div style="display: flex;">
@@ -446,7 +509,7 @@ public class StreamComponent extends VerticalLayout {
     private Renderer<Stream> createDeleteButton() {
         return new ComponentRenderer<>(stream -> {
             Button delete = new Button(new Icon(VaadinIcon.TRASH), event -> {
-                bookmarks.delete(stream.xmltv_id());
+                bookmarks.deleteBookmark(stream.xmltv_id());
                 streamsGrid.setItems(epgstream.getBookmarkedStreams());
             });
 

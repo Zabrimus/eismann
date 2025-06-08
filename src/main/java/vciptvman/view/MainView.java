@@ -19,7 +19,7 @@ public class MainView extends AppLayout {
     public enum SelectedTab {
         STREAMS,
         BOOKMARKS,
-        DATABASE,
+        VDR
     }
 
     private Tabs tabs;
@@ -43,7 +43,7 @@ public class MainView extends AppLayout {
     private void init(String messageText) {
         DrawerToggle toggle = new DrawerToggle();
 
-        H1 title = new H1("EPG/IPTV Stream Manager Version 0.4");
+        H1 title = new H1("EPG/IPTV Stream Manager Version 0.5");
         title.getStyle().set("font-size", "var(--lumo-font-size-l)").set("margin", "0");
 
         tabs = getTabs();
@@ -61,8 +61,8 @@ public class MainView extends AppLayout {
     private Tabs getTabs() {
         Tabs tabs = new Tabs();
         tabs.add(createTab(VaadinIcon.MOVIE, "Streams", IPTVStreams.class),
-                 createTab(VaadinIcon.NEWSPAPER, "Bookmarks", Bookmarks.class)
-                 /* ,createTab(VaadinIcon.DATABASE, "Database", Database.class) */
+                 createTab(VaadinIcon.NEWSPAPER, "Bookmarks", Bookmarks.class),
+                 createTab(VaadinIcon.RECORDS, "VDR", Vdr.class)
         );
 
         tabs.setOrientation(Tabs.Orientation.VERTICAL);
