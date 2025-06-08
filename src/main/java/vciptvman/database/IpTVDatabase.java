@@ -89,7 +89,7 @@ public class IpTVDatabase {
         try {
             con.createQuery("SELECT * FROM bookmarks").executeAndFetch(String.class);
         } catch (Exception e) {
-            // table does not exist => create tables
+            // table does not exist => create table
             String sql1 = """
                     CREATE TABLE bookmarks (
                         xmltv_id  TEXT NOT NULL,
@@ -122,6 +122,27 @@ public class IpTVDatabase {
             }
         } catch (Exception e) {
             // ignore this, because column possibly exists already
+        }
+
+        try {
+            con.createQuery("SELECT * FROM vdr_channels").executeAndFetch(String.class);
+        } catch (Exception e) {
+            // table does not exist => create tables
+            String sql1 = """
+                    CREATE TABLE vdr_channels (
+                        channel_id  TEXT NOT NULL,
+                        name        TEXT NOT NULL,
+                        xmltv_id    TEXT,
+                        site        TEXT,
+                        site_lang   TEXT,
+                        other_id    TEXT,
+                        status      INTEGER DEFAULT 0,
+                    
+                        unique (channel_id)
+                    )
+                    """;
+
+            con.createQuery(sql1).executeUpdate();
         }
     }
 

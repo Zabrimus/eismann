@@ -180,4 +180,12 @@ public class EpgStreamDatabase {
         }
     }
 
+    public List<OtherEpgProvider> getOtherEpgProvider() {
+        try (Connection con = database.getEpgConnection()) {
+            return con.createQuery("""
+                            SELECT * FROM other_epg ORDER BY upper(name)
+                          """)
+                    .executeAndFetch(OtherEpgProvider.class);
+        }
+    }
 }
