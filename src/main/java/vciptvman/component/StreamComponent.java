@@ -428,11 +428,13 @@ public class StreamComponent extends VerticalLayout {
         return LitRenderer.<Stream> of("""
                         <vaadin-vertical-layout>
                             <image src="${item.logo}" style="max-height:30px"></image>
-                            ${item.name}
+                            ${item.name}<br/>
+                            <span style="font-size: smaller;color:grey;">${item.xmltvid}</span>
                         </vaadin-vertical-layout>
                         """)
                 .withProperty("logo", Stream::logo)
-                .withProperty("name", Stream::name);
+                .withProperty("name", Stream::name)
+                .withProperty("xmltvid", Stream::xmltv_id);
     }
 
     private Renderer<Stream> createVdrRenderer() {
