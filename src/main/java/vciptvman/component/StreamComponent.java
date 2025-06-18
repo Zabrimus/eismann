@@ -32,7 +32,7 @@ import vciptvman.model.*;
 import java.util.*;
 import java.util.function.Consumer;
 
-public class StreamComponent extends VerticalLayout {
+public class StreamComponent extends VerticalLayout implements EpgdBufferCreator {
 
     private static EpgStreamDatabase epgstream;
     private static BookmarkDatabase bookmarks;
@@ -133,7 +133,7 @@ public class StreamComponent extends VerticalLayout {
         buffer.append("</channels>\n");
 
         String saveTo = System.getProperty("epg-channels.save-to");
-        ExportDialog a = new ExportDialog("EPG", buffer.toString(), saveTo);
+        ExportDialog a = new ExportDialog("EPG", buffer.toString(), saveTo, ExportDialog.ExportType.EPG_CHANNELLIST, null);
         a.open();
     }
 
@@ -148,15 +148,16 @@ public class StreamComponent extends VerticalLayout {
         });
 
         String saveTo = System.getProperty("stream-channels.save-to");
-        ExportDialog a = new ExportDialog("Streams", buffer.toString(), saveTo);
+        ExportDialog a = new ExportDialog("Streams", buffer.toString(), saveTo, ExportDialog.ExportType.STREAMS, null);
         a.open();
     }
 
-    private void exportEpgd() {
+    public StringBuffer createExportEpgdBuffer(boolean addVdr, boolean addAllOthers) {
         StringBuffer buffer = new StringBuffer();
 
         List<Bookmark> book = bookmarks.getAllBookmarks().stream().filter(b -> b.site() != null && !b.site().isEmpty() && b.active()).toList();
         List<VdrChannel> chan = bookmarks.getVdrChannels().stream().filter(b -> b.other_id() != null || b.xmltv_id() != null).toList();
+        List<VdrChannel> chan2 = bookmarks.getVdrChannels().stream().filter(b -> b.other_id() == null && b.xmltv_id() == null).toList();
         List<OtherEpgProvider> op = epgstream.getOtherEpgProvider();
 
         // at first all VdrChannel
@@ -164,6 +165,11 @@ public class StreamComponent extends VerticalLayout {
             boolean added = false;
 
             buffer.append("// " + c.name() + "\n");
+
+            if (addVdr) {
+                buffer.append("vdr:000:0 = " + c.channel_id() + "\n");
+            }
+
             if (c.xmltv_id() != null) {
                 buffer.append("xmltv:" +  c.xmltv_id() + ":1 = " + c.channel_id() + "\n");
                 added = true;
@@ -181,12 +187,31 @@ public class StreamComponent extends VerticalLayout {
             boolean exists = chan.stream().filter(x -> x.xmltv_id() != null && x.xmltv_id().equals(bookmark.xmltv_id())).findFirst().isPresent();
             if (!exists) {
                 buffer.append("// " + epgstream.getName(bookmark.xmltv_id()) + "\n");
-                buffer.append("xmltv:" + bookmark.xmltv_id() + ":1 = \n\n");
+
+                if (addVdr) {
+                    buffer.append("// vdr:000:0 = \n");
+                }
+
+                buffer.append("// xmltv:" + bookmark.xmltv_id() + ":1 = \n\n");
             }
         });
 
+        // all channels without a configured epg provider
+        if (addAllOthers) {
+            chan2.stream().forEach(c -> {
+                buffer.append("// " + c.name() + "\n");
+                buffer.append("vdr:0000:0 = " + c.channel_id() + "\n\n");
+            });
+        }
+
+        return buffer;
+    }
+
+    private void exportEpgd() {
+        StringBuffer buffer = createExportEpgdBuffer(false, false);
+
         String saveTo = System.getProperty("epgd-channelmap.save-to");
-        ExportDialog a = new ExportDialog("epgd channelmap.conf", buffer.toString(), saveTo);
+        ExportDialog a = new ExportDialog("epgd channelmap.conf", buffer.toString(), saveTo, ExportDialog.ExportType.EPGD_CHANNELMAP, this);
         a.open();
     }
 

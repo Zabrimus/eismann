@@ -2,12 +2,14 @@ package vciptvman.component;
 
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.theme.lumo.LumoUtility;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -16,13 +18,30 @@ import java.io.IOException;
 
 public class ExportDialog extends Div {
 
+    public enum ExportType {
+        EPGD_CHANNELMAP,
+        EPG_CHANNELLIST,
+        STREAMS,
+    }
+
     private final Dialog dialog;
     private String text;
     private String saveTo;
+    private ExportType exportType;
 
-    public ExportDialog(String title, String text, String saveTo) {
+    private boolean optionEpgdVdr;
+    private boolean optionEpgdAllOther;
+
+    private EpgdBufferCreator epgdBufferCreator;
+
+    public ExportDialog(String title, String text, String saveTo, ExportType exportType, EpgdBufferCreator epgdBufferCreator) {
         this.text = text;
         this.saveTo = saveTo;
+        this.exportType = exportType;
+        this.epgdBufferCreator = epgdBufferCreator;
+
+        optionEpgdVdr = false;
+        optionEpgdAllOther = false;
 
         dialog = new Dialog();
         dialog.setHeaderTitle(title);
@@ -87,7 +106,27 @@ public class ExportDialog extends Div {
         TextArea textArea = new TextArea();
         textArea.setValue(text);
 
-        dialogLayout.add(textArea, buttons);
+        if (exportType ==  ExportType.EPGD_CHANNELMAP) {
+            FlexLayout options =  new FlexLayout();
+            Checkbox oVdr = new Checkbox("Add VDR entries");
+            oVdr.addValueChangeListener(event -> {
+                optionEpgdVdr = event.getValue();
+
+                textArea.setValue(epgdBufferCreator.createExportEpgdBuffer(optionEpgdVdr, optionEpgdAllOther).toString());
+            });
+
+            Checkbox oAllOthers = new Checkbox("Add VDR for all non-configured entries");
+            oAllOthers.addValueChangeListener(event -> {
+                optionEpgdAllOther = event.getValue();
+
+                textArea.setValue(epgdBufferCreator.createExportEpgdBuffer(optionEpgdVdr, optionEpgdAllOther).toString());
+            });
+
+            options.add(oVdr,  oAllOthers);
+            dialogLayout.add(textArea, options, buttons);
+        } else {
+            dialogLayout.add(textArea, buttons);
+        }
 
         return dialogLayout;
     }
