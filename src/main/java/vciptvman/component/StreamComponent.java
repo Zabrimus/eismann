@@ -24,6 +24,7 @@ import com.vaadin.flow.data.renderer.LitRenderer;
 import com.vaadin.flow.data.renderer.Renderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.atmosphere.interceptor.AtmosphereResourceStateRecovery;
 import vciptvman.database.BookmarkDatabase;
 import vciptvman.database.EpgStreamDatabase;
@@ -121,10 +122,10 @@ public class StreamComponent extends VerticalLayout implements EpgdBufferCreator
                 String siteId = epgstream.getSiteId(bookmark.xmltv_id(), bookmark.site(), bookmark.site_lang());
 
                 if (StringUtils.isNotEmpty(siteId)) {
-                    buffer.append("    <channel site=\"" + bookmark.site() + "\" lang=\"" + bookmark.site_lang() + "\" xmltv_id=\"" + bookmark.xmltv_id() + "\" site_id=\"" + siteId + "\">" + epgstream.getName(bookmark.xmltv_id()) + "</channel>\n");
+                    buffer.append("    <channel site=\"" + bookmark.site() + "\" lang=\"" + bookmark.site_lang() + "\" xmltv_id=\"" + bookmark.xmltv_id() + "\" site_id=\"" + siteId + "\">" + StringEscapeUtils.escapeXml10(epgstream.getName(bookmark.xmltv_id())) + "</channel>\n");
                 } else {
                     buffer.append("<!-- Dieser Kanal kann nicht gefunden werden. Wahrscheinlich stimmt die xmltv_id nicht.\n");
-                    buffer.append("    <channel site=\"" + bookmark.site() + "\" lang=\"" + bookmark.site_lang() + "\" xmltv_id=\"" + bookmark.xmltv_id() + "\" site_id=\"" + siteId + "\">" + epgstream.getName(bookmark.xmltv_id()) + "</channel>\n");
+                    buffer.append("    <channel site=\"" + bookmark.site() + "\" lang=\"" + bookmark.site_lang() + "\" xmltv_id=\"" + bookmark.xmltv_id() + "\" site_id=\"" + siteId + "\">" + StringEscapeUtils.escapeXml10(epgstream.getName(bookmark.xmltv_id())) + "</channel>\n");
                     buffer.append("-->\n");
                 }
             }
