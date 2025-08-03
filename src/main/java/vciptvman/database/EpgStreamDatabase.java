@@ -26,18 +26,19 @@ public class EpgStreamDatabase {
         try (Connection con = database.getEpgConnection()) {
             return con.createQuery("""
                         SELECT * FROM (
-                            SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo 
+                            SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, lo.url logo
                             FROM streams s
-                            LEFT JOIN countries co ON co.code = s.country
-                            LEFT JOIN channels ch ON ch.id = s.ref_channel_id                            
-                        
+                                     LEFT JOIN countries co ON co.code = s.country
+                                     LEFT JOIN channels ch ON ch.id = s.ref_channel_id
+                                     LEFT JOIN logos lo ON lo.channel = ch.xmltv_id
+                            
                             UNION
-                        
-                            SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo 
+                            
+                            SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, lo.url logo
                             FROM epg_channels s
-                            LEFT JOIN countries co ON co.code = s.country
-                            LEFT JOIN channels ch ON ch.id = s.ref_channel_id                            
-                        )                        
+                                     LEFT JOIN countries co ON co.code = s.country
+                                     LEFT JOIN channels ch ON ch.id = s.ref_channel_id
+                                     LEFT JOIN logos lo ON lo.channel = s.xmltv_id                        )                        
                         GROUP BY xmltv_id
                         ORDER BY upper(name);
                     """)
@@ -49,17 +50,19 @@ public class EpgStreamDatabase {
         try (Connection con = database.getEpgConnection()) {
             return con.createQuery("""
                         SELECT * FROM (
-                                SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo
-                                      FROM streams s
-                                              LEFT JOIN countries co ON co.code = s.country
-                                              LEFT JOIN channels ch ON ch.id = s.ref_channel_id
-                    
-                                              UNION
-                    
-                                              SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, ch.logo logo
-                                      FROM epg_channels s
-                                        LEFT JOIN countries co ON co.code = s.country
-                                        LEFT JOIN channels ch ON ch.id = s.ref_channel_id
+                                SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, lo.url logo
+                                FROM streams s
+                                         LEFT JOIN countries co ON co.code = s.country
+                                         LEFT JOIN channels ch ON ch.id = s.ref_channel_id
+                                         LEFT JOIN logos lo ON lo.channel = s.xmltv_id
+                                
+                                UNION
+                                
+                                SELECT DISTINCT s.xmltv_id xmltv_id, s.name name, co.name country, co.code country_code, co.flag flag, ch.categories categories, ch.website website, lo.url logo
+                                FROM epg_channels s
+                                         LEFT JOIN countries co ON co.code = s.country
+                                         LEFT JOIN channels ch ON ch.id = s.ref_channel_id
+                                         LEFT JOIN logos lo ON lo.channel = s.xmltv_id
                         ) a
                         WHERE (SELECT count(*) FROM epg_channels e WHERE a.xmltv_id = e.xmltv_id AND site = :site) > 0
                         GROUP BY xmltv_id
